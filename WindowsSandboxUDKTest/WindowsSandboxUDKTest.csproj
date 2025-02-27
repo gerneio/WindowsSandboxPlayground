@@ -1,0 +1,44 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Win 11 24H2 -->
+    <TargetFramework>net8.0-windows10.0.26100</TargetFramework>
+    <RootNamespace>WindowsSandboxUDKTest</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!-- Uncomment to pull from local SandboxUDK.dll directly (comment out package `Microsoft.Windows.CsWinRT` ref below) -->
+  <!-- WindowsSandbox_Dir: Get-AppxPackage *WindowsSandbox* -->
+  <!-- <PropertyGroup>
+    <WindowsSandbox_Dir>C:\temp\winsandbox\MicrosoftWindows.WindowsSandbox_0.4.31.0_x64__cw5n1h2txyewy</WindowsSandbox_Dir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="SandboxUDK">
+      <HintPath>$(WindowsSandbox_Dir)\SandboxUDK.dll</HintPath>
+    </Reference>
+  </ItemGroup> -->
+
+  <ItemGroup>
+    <!-- Converts metadata from WINMD files to auto-generated C# interop code (aka projection): https://github.com/microsoft/CsWinRT -->
+    <PackageReference Include="Microsoft.Windows.CsWinRT" Version="2.2.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!-- CsWinRT Options: https://github.com/microsoft/CsWinRT/blob/master/nuget/readme.md#customizing -->
+    <!-- This basically mimics `SandboxUDK.dll` w/o depending on it directly -->
+    <CsWinRTIncludes>
+      WindowsUdk.Security.Isolation;
+      WindowsUdk.Foundation.Metadata;
+    </CsWinRTIncludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Copied from: C:\Windows\SystemApps\MicrosoftWindows.UndockedDevKit_cw5n1h2txyewy (see: Get-AppxPackage *UndockedDevKit*) -->
+	  <CsWinRTInputs Include="10.0.26100\windowsudk.winmd" />
+    <!-- Other WINMD locations: HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\* -->
+  </ItemGroup>
+
+</Project>
