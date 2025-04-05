@@ -12,6 +12,18 @@ These sort of workflows would require a bit more robust control over sandbox's, 
 
 ## Investigations
 
+<details open>
+
+<summary><b>Updates 4/4/25:</b></summary>
+
+* The below trick for running as admin/non-admin to get multiple sandbox's seems to be patched, as of `MicrosoftWindows.WindowsSandbox_0.5.0.0` (worked previously with `MicrosoftWindows.WindowsSandbox_0.4.31.0`). The `wsb` CLI command seems to now behave the same regardless of which elevation the process is running under (this was an expected change).
+* Creating a sandbox directly using the UDK generated code (i.e. like what the test program in this repo is doing) seems to have some different behavior compared to before when I tested this. Previously I could ping the custom sandbox, however that no longer works and haven't dug into why yet. The rest of the code in the test project still functions, but still unable to interact with the VM in any of our prefered ways (via RDP or remote shell). I suspect there is some sort of process chain whitelist happening at some layer.
+* For the built-in sandbox feature, found a way to interact with the VM directly w/o use of the IP or enabling PS remoting on the VM. Essentially we use the `Invoke-Command`/`Enter-PSSession` with the `-VMId` option. There's more to it for it work, so refer to sample script near bottom. I'm sure this was possible before, I just hadn't thought to try something like this. Mostly what I was curious was if I could use this technique to connect to my custom sandbox created when using the UDK libs directly, but unfortunately it did not work...
+
+</details>
+
+---
+
 For my initial investigation details see my existing posts [here][1] and [here][2].
 
 * ### Invetigate inner workings of [Windows Sandbox][0]
@@ -59,7 +71,7 @@ Script to start a new sandbox, enable PS remoting, retrieve the auto-generated I
 
 ```ps1
 # Get path from: Get-AppxPackage *WindowsSandbox*
-using assembly "{path_to}\MicrosoftWindows.WindowsSandbox_0.4.31.0_x64__cw5n1h2txyewy\SandboxCommon.dll"
+using assembly "{path_to}\MicrosoftWindows.WindowsSandbox_0.5.0.0_x64__cw5n1h2txyewy\SandboxCommon.dll"
 
 wsb start
 
@@ -76,10 +88,45 @@ $sandboxIp = wsb ip --id $sandboxId
 $cred = New-Object System.Management.Automation.PSCredential ("WDAGUtilityAccount", (ConvertTo-SecureString ($config.Password) -AsPlainText -Force))
 
 Invoke-Command -ComputerName $sandboxIp -Credential $cred -ScriptBlock { Write-Host "Hello from sandbox!"; whoami; hostname; }
+# OR # Enter-PSSession -ComputerName $sandboxIp -Credential $cred
 
 wsb stop --id $sandboxId
 ```
 
+---
+
+Similiar script as above, but w/o using IP or enabling PS remoting:
+
+```ps1
+# Get path from: Get-AppxPackage *WindowsSandbox*
+using assembly "{path_to}\MicrosoftWindows.WindowsSandbox_0.5.0.0_x64__cw5n1h2txyewy\SandboxCommon.dll"
+
+wsb start
+
+[guid]$sandboxId = wsb list
+
+$client = [SandboxCommon.Grpc.GrpcClient]::new()
+
+$config = $client.GetRdpClientConfigAsync($sandboxId).Result
+
+$vmId = $config.VMId
+
+$cred = New-Object System.Management.Automation.PSCredential ("WDAGUtilityAccount", (ConvertTo-SecureString ($config.Password) -AsPlainText -Force))
+
+# It's possible to use `Invoke-Command`/`Enter-PSSession` directly w/o enabling remote PS for a sandbox. Requires
+# overriding existing `Get-VM` cmdlet w/ VM details (which is what these commands rely on). There is probably
+# a better way to do this, but the internal mechanisms of `Invoke-Command` seem locked down.
+function Get-VM($Id) {
+    # VMName doesn't seem to matter in this case
+    @( [PSCustomObject]@{ VMName="WinSbx"; VMId=[guid]::Parse($id); State=2; } )
+    # TODO: query `wsb list` and append to existing cmdlet results?
+}
+
+Invoke-Command -VMId $vmId -Credential $cred -ScriptBlock { Write-Host "Hello from sandbox!"; whoami; hostname; }
+# OR # Enter-PSSession -VMId $vmId -Credential $cred
+
+wsb stop --id $sandboxId
+```
 
 [0]: https://github.com/microsoft/Windows-Sandbox
 [1]: https://github.com/smourier/WinformsSandbox/issues/1
