@@ -11,6 +11,16 @@ Overall, I see a ton of use cases. For one, windows sandbox's could be an altern
 These sort of workflows would require a bit more robust control over sandbox's, such as persistence control and running multiple instances. A general management tool for exposing these experiences seemlessly would be ideal. [Dev Home](https://learn.microsoft.com/en-us/windows/dev-home/) would have been perfect if it weren't for the fact that it is being [discontinued](https://github.com/microsoft/devhome/pull/4028#issuecomment-2614526347) in May 2025 (how sad).
 
 ## Investigations
+<details open>
+
+<summary><b>Updates 4/14/25:</b></summary>
+
+* Found minor mistake that was preventing us from interacting with our custom sandbox's created directly through UDK. Early disposal of `VMRunningReference` seems to pre-maturely shutdown VM in some capacity. After correcting that, we can now ping our custom sandbox, as well as target it with the `Invoke-Command`/`Enter-PSSession` PS commands. Additionally, even though we are circumventing the built-in sandbox management features and can't connect to it via that `wsb` cli (i.e. `wsb connect`), turns out we can pull in the `AxMSTSCLib` COM lib and reference the Remote Desktop ActiveX control within a windows forms project. This is demonstrated via [this repo](https://github.com/smourier/WinformsSandbox), albeit it relies on dynamically calling the built-in Windows Sandbox logic. I found that when creating the sandbox manually via UDK, I could manually set the pipe endpoint and user/password on the `_rdpClient` object which would work to load a RDP connection.
+    * Note: While I could create multiple custom sandbox's, the Remote Desktop ActiveX control only seemed to allow us to connect to the first one. Haven't dug in far enough to explore the extent of the issue nor a workaround.
+    * Note: Appears our custom windows sandbox are cleaned up after a period of time (5-10 mins?) IF we exit out of our custom program. I suspect this would be a non-issue if we stood up a service/GUI and stored those `VMRunningReference`s for the lifetime of the application.
+* Ultimately this latest update confirms that we can startup _several_ of our own custom windows sandbox's, interact with them via a remote shell, but still only connect to the first one via RDP. Since we can execute any command we want on the sandbox, we could just as easily install VNC to fill that purpose.
+
+</details>
 
 <details open>
 

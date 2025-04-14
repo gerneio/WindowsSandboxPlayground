@@ -44,7 +44,7 @@ var _vm = new WindowsUdk.Security.Isolation.ManagedWindowsVM(_vmOptions);
 Console.WriteLine($"\nCreating VM: {_vm.Id} / Default User: {_vm.DefaultUserName}");
 
 try {
-    using var _runningReference = _vm.CreateRunningReference();
+    var _runningReference = _vm.CreateRunningReference();
 
     Console.WriteLine($"VM Created: {_vm.Id} / Storage Id: {_vm.Storage.Id}");
 
